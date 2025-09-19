@@ -40,20 +40,16 @@ function ChatPage() {
     hasTooManyTools,
   } = useChatAgent();
 
-  // Get current input from draft messages
   const currentInput = currentChat ? getDraftMessage(currentChat.id) : '';
 
-  // Simple debounce implementation
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
   const debouncedSaveDraft = useCallback((chatId: number, content: string) => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
-      // This could be used for future persistence to localStorage or server
       console.log('Debounced save draft:', { chatId, contentLength: content.length });
     }, 500);
   }, []);
 
-  // Cleanup timeout on unmount to prevent memory leak
   useEffect(() => {
     return () => {
       if (debounceRef.current) {
@@ -94,7 +90,6 @@ function ChatPage() {
     const firstUserMessage = messages.find((msg) => msg.role === 'user');
     if (!firstUserMessage) return;
 
-    // Extract text from message.parts for rerun logic
     let messageText = '';
     if (firstUserMessage.parts) {
       const textPart = firstUserMessage.parts.find((part) => part.type === 'text');
@@ -104,16 +99,37 @@ function ChatPage() {
     }
     if (!messageText) return;
 
-    // Clear all messages except memories (system message)
     const memoriesMessage = messages.find((msg) => msg.id === config.chat.systemMemoriesMessageId);
     const newMessages = memoriesMessage ? [memoriesMessage] : [];
 
-    // Update messages to only show memories
     setMessages(newMessages);
 
-    // Automatically send the first user message again
     setIsSubmitting(true);
     sendMessage({ text: messageText });
+  };
+
+  const handleClearChat = () => {
+    if (currentChat) {
+      setMessages([]);
+      clearDraftMessage(currentChat.id);
+    }
+  };
+
+  const handleCompactChat = () => {
+    if (currentChat && messages.length > 0) {
+      const conversationText = messages
+        .map((msg) => {
+          const content = msg.parts.find((p) => p.type === 'text')?.text || '';
+          return `${msg.role}: ${content}`;
+        })
+        .join('\n');
+
+      const summarizationPrompt = `Please provide a concise summary of the following conversation to use as context moving forward:\n\n---\n\n${conversationText}`;
+
+      setMessages([]);
+      sendMessage({ text: summarizationPrompt });
+      clearDraftMessage(currentChat.id);
+    }
   };
 
   const isSubmittingDisabled =
@@ -139,6 +155,8 @@ function ChatPage() {
           hasMessages={false}
           status="ready"
           isSubmitting={false}
+          onClear={() => {}}
+          onCompact={() => {}}
         />
       </div>
     );
@@ -187,6 +205,8 @@ function ChatPage() {
           onRerunAgent={handleRerunAgent}
           rerunAgentDisabled={isLoading || isSubmitting}
           isSubmitting={isSubmitting}
+          onClear={handleClearChat}
+          onCompact={handleCompactChat}
         />
       </div>
     </div>
