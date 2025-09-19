@@ -1,4 +1,0 @@
-{
-  "watch": ["scripts/watch.js"],
-  "exec": "node scripts/watch.js"
-}
